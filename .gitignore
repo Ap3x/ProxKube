@@ -3,3 +3,6 @@
 ################################################################################
 
 /.vs/VSWorkspaceState.json
+/.vs/config/applicationhost.config
+/.vs/Proxmox_ConvertOVA/v15/.suo
+/.vs/slnx.sqlite
