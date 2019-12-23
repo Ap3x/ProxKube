@@ -24,7 +24,7 @@ def mainMenu ():
 
         if select == "1":
             ConvertVMDK()
-            ParseConf()
+            ParseOVF()
 
         elif select == "2":
             ConvertQCOW2()
@@ -54,7 +54,6 @@ def GetListOfVM():
 	#print final
 	os.system('rm -rf newAVMS.txt')
 
-
 def ConvertVMDK ():
     path = raw_input("Path of folder with VMDK file(s): ")
     os.system("cd " + path)
@@ -63,12 +62,11 @@ def ConvertVMDK ():
     try:
         with open("ConvertRAWfile.txt") as fp:
             for i, line in enumerate(fp):
-                SearchForOVF(line)
-                SearchForVMX(line)
+                if not SearchForOVF(line[:-1]) :
+                    SearchForVMX(line[:-1])
     except IOError as e:
-        print("MISSING VMX or OVF file")
+        print("MISSING VMX or OVF file" + str(e) )
         sys.exit()
-
 
 def ConvertQCOW2 ():
     path = raw_input("Path of folder with QCOW2 file(s): ")
@@ -79,10 +77,10 @@ def ConvertQCOW2 ():
     try:
         with open("ConvertRAWfile.txt") as fp:
             for i, line in enumerate(fp):
-                SearchForOVF(line)
-                SearchForVMX(line)
+                SearchForOVF(line[:-1])
+		SearchForVMX(line[:-1])
     except IOError as e:
-        print("MISSING VMX or OVF file")
+        print("MISSING VMX or OVF file" + str(e) )
         sys.exit()
 
 def SearchForOVF (fileName):
@@ -90,17 +88,19 @@ def SearchForOVF (fileName):
         print("Current File: " + fileName)				            					# Read the first line of ConvertRAWfile.txt
         expression = regexLib.compile(r".*<rasd:Description>(.+?)</rasd:Description>")	# Expression to search for
         out = []
-        with open(fileName + ".ovf") as enumFile:						            		# Search each line of the .ovf file IF the file is not
-                                                 						            		# found then the error is caught and searches a vmx file
-            for lineNum, lineInfo in enumerate(enumFile):					            # For each line in ovf file
-                if expression.findall(lineInfo) != []:							        # Read the line looking for the expression
+
+        with open(fileName + ".ovf") as enumFile:						            	# Search each line of the .ovf file IF the file is not                          						            		# found then the error is caught and searches a vmx file
+            for lineNum, lineInfo in enumerate(enumFile):					            	# For each line in ovf file
+		if expression.findall(lineInfo) != []:							        # Read the line looking for the expression
                     temp = expression.findall(lineInfo)							        # If found between Description tags in ovf add to temp
-                    out.append(temp[0])										            # temp is added to array
+                    out.append(temp[0])										# temp is added to array
         print(" => " + str(out))
+	return  True
     except IOError as e:
-       print("OVF File not found looking for VMX File")
+       print("OVF File not found looking for VMX File " + str(e) )
 
 def SearchForVMX (fileName):
+	
         expr = regexLib.compile(r".*ide0:0.present")
         out = []
         with open(fileName + ".vmx") as enumFile:
@@ -140,6 +140,7 @@ def CreateVM (command, vmID, vmName):
     print("Created VM " + str(vmId) + " called " + vmName)
 
 def ParseOVF ():
+
     VMID_Start = 461  #This is the VM ID start number
     LoopNum = 1
     with open("ConvertRAWfile.txt") as enumFile:
@@ -171,6 +172,10 @@ def ParseOVF ():
                         elementNum += 1
                 except IOError as e:
                     print("OVF File not found looking for VMX File")
+
+
+mainMenu()
+
 #   createCommand = "qm create "+str(VMID_Start)+ "
 #   --name=VulnHub-"+line[:-1]+" --onboot=1 --ide2=none,media=cdrom
 #   --ostype=l26 --scsihw=virtio-scsi-pci --sata0=Backup:1,format=qcow2
