@@ -24,7 +24,7 @@ def mainMenu ():
 
         if select == "1":
             ConvertVMDK()
-            ParseOVF()
+            #ParseOVF()
 
         elif select == "2":
             ConvertQCOW2()
@@ -59,11 +59,15 @@ def ConvertVMDK ():
     os.system("cd " + path)
     getFileName = "ls *.vmdk | sed  -e 's/.$//' -e 's/.$//' -e 's/.$//' -e 's/.$//' -e 's/.$//' > ConvertRAWfile.txt"	#List the files then removes the last 5 chars then puts each line in ConvertRAWfile
     os.system(getFileName)
+    
     try:
         with open("ConvertRAWfile.txt") as fp:
             for i, line in enumerate(fp):
                 if not SearchForOVF(line[:-1]) :
                     SearchForVMX(line[:-1])
+                else:
+                    vmIDInput = raw_input("What is the VM ID: ")
+                    ParseOVF(int(vmIDInput))
     except IOError as e:
         print("MISSING VMX or OVF file" + str(e) )
         sys.exit()
@@ -87,13 +91,11 @@ def SearchForOVF (fileName):
     try:
         print("Current File: " + fileName)				            					# Read the first line of ConvertRAWfile.txt
         expression = regexLib.compile(r".*<rasd:Description>(.+?)</rasd:Description>")	# Expression to search for
-        out = []
-
         with open(fileName + ".ovf") as enumFile:						            	# Search each line of the .ovf file IF the file is not                          						            		# found then the error is caught and searches a vmx file
             for lineNum, lineInfo in enumerate(enumFile):					            	# For each line in ovf file
 		if expression.findall(lineInfo) != []:							        # Read the line looking for the expression
-                    temp = expression.findall(lineInfo)							        # If found between Description tags in ovf add to temp
-                    out.append(temp[0])										# temp is added to array
+           	    temp = expression.findall(lineInfo)							        # If found between Description tags in ovf add to temp
+                    out.append(temp[0])										            # temp is added to array
         print(" => " + str(out))
 	return  True
     except IOError as e:
@@ -134,20 +136,19 @@ def CreateVMfromVMXbyIDE (vmID, vmName, typeOfHD):
 
 def CreateVMfromOVF (vmID, vmName, typeOfHD):
     createCommand = "qm create " + str(vmID) + " --name=" + vmName + " --onboot=1 --ide2=none,media=cdrom --ostype=l26 --scsihw=virtio-scsi-pci --" + typeOfHD + "0=Backup:1,format=qcow2 --sockets=1 --cores=1 --numa=0 --memory=512 --net0=virtio,bridge=vmbr1"
+    #ConvertVMDKtoQCOW2(vmName)
+    CreateVM(createCommand, vmID, vmName)
 
 def CreateVM (command, vmID, vmName):
     os.system(command)
-    print("Created VM " + str(vmId) + " called " + vmName)
+    print("Created VM " + str(vmID) + " called " + vmName)
 
-def ParseOVF ():
-
-    VMID_Start = 461  #This is the VM ID start number
-    LoopNum = 1
+def ParseOVF (vmID):
+    #VMID_Start = vmID  #This is the VM ID start number
+    #LoopNum = 1
     with open("ConvertRAWfile.txt") as enumFile:
-        for i, line in enumerate(enumFile):
-            if state == 0:
-                try: 
-                    SearchOVF()
+        for i, line in enumerate(enumFile): 
+            try:
                     elementNum = 0
                     for data in out:
                         s = out[elementNum]
@@ -157,23 +158,40 @@ def ParseOVF ():
 
                         new = expr2.findall(s)
                         if new:
-                            CreateVMfromOVF("sata")
+                            CreateVMfromOVF(vmID, line[:-1], "sata")
                             break
 
                         new3 = expr3.findall(s)
                         if new3:
-                            CreateVMfromOVF("ide")
+                            CreateVMfromOVF(vmID, line[:-1], "ide")
                             break
 
                         new4 = expr4.findall(s)
                         if new4:
-                            CreateVMfromOVF("scsi")
+                            CreateVMfromOVF(vmID, line[:-1], "scsi")
                             break
                         elementNum += 1
-                except IOError as e:
-                    print("OVF File not found looking for VMX File")
+            except IOError as e:
+                print("OVF File not found looking for VMX File")
 
+def ConvertVMDKtoQCOW2(vmID, vmName):
+    with open("ConvertRAWfile.txt") as enumFile:
+        for i, line in enumerate(enumFile):
+           cmdConvert = "qemu-img convert -f vmdk " + line[:-1] + ".vmdk -O qcow2 " + line[:-1] + ".qcow2"
+           os.system(cmdConvert)
+           print("Successful conversion of " + line[:-1] + ".vmdk to " + line[:-1] + ".qcow2")
+           cmdMove = ("mv " + line[:-1] + ".qcow2 /Backup/images/" + str(vmID) + "/vm-" + str(vmID) + "-disk-1.qcow2")
+           os.system(cmdMove)
+           print("Moved " + line[:-1] + ".qcow2 to  /Backup/images/" + str(VMID_Start) + "/vm-" + str(VMID_Start) + "-disk-1.qcow2")
+	   os.system("rm -rf "+ line[:-1]+ ".raw")
+           print "Deleted "+ line[:-1]+ ".raw"
+           VMID_Start += 1 
+           print("Completed")
 
+    print("Converted and moved all the files")
+    os.system("rm -rf ConvertRAWfile.txt")
+
+out = []
 mainMenu()
 
 #   createCommand = "qm create "+str(VMID_Start)+ "

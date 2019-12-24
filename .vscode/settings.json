@@ -1,5 +1,6 @@
 {
     "python.linting.pylintEnabled": false,
     "python.linting.banditEnabled": true,
-    "python.linting.enabled": false
+    "python.linting.enabled": false,
+    "python.formatting.provider": "autopep8"
 }
