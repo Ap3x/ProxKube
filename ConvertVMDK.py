@@ -63,11 +63,15 @@ def ConvertVMDK ():
     try:
         with open("ConvertRAWfile.txt") as fp:
             for i, line in enumerate(fp):
-                if not SearchForOVF(line[:-1]) :
+                if not SearchForOVF(line[:-1]):
+                    # TODO ADD ParseVMX()
                     SearchForVMX(line[:-1])
-                else:
+                elif SearchForOVF(line[:-1]):
+                    # TODO ADD Ability to list the vm ids that can be used
                     vmIDInput = raw_input("What is the VM ID: ")
                     ParseOVF(int(vmIDInput))
+                else:
+                    print("Missing the VMX or OVF file")
     except IOError as e:
         print("MISSING VMX or OVF file" + str(e) )
         sys.exit()
@@ -135,27 +139,26 @@ def CreateVMfromVMXbyIDE (vmID, vmName, typeOfHD):
     return createCommand
 
 def CreateVMfromOVF (vmID, vmName, typeOfHD):
-    createCommand = "qm create " + str(vmID) + " --name=" + vmName + " --onboot=1 --ide2=none,media=cdrom --ostype=l26 --scsihw=virtio-scsi-pci --" + typeOfHD + "0=Backup:1,format=qcow2 --sockets=1 --cores=1 --numa=0 --memory=512 --net0=virtio,bridge=vmbr1"
-    #ConvertVMDKtoQCOW2(vmName)
+    createCommand = "qm create " + str(vmID) + " --name=" + vmName + " --onboot=1 --ide2=none,media=cdrom --ostype=l26 --scsihw=virtio-scsi-pci --" + typeOfHD + "0=Backup:1,format=qcow2 --sockets=1 --cores=1 --numa=0 --memory=512 --net0=virtio,bridge=vmbr2,tag=900"
     CreateVM(createCommand, vmID, vmName)
+    ConvertVMDKtoQCOW2(vmID, vmName)
 
 def CreateVM (command, vmID, vmName):
     os.system(command)
     print("Created VM " + str(vmID) + " called " + vmName)
 
 def ParseOVF (vmID):
-    #VMID_Start = vmID  #This is the VM ID start number
-    #LoopNum = 1
     with open("ConvertRAWfile.txt") as enumFile:
         for i, line in enumerate(enumFile): 
             try:
                     elementNum = 0
                     for data in out:
                         s = out[elementNum]
+                        # TODO RESEARCH xml may be different find way to verify this is the hard disk
                         expr2 = regexLib.compile(r'.*SATA')
                         expr3 = regexLib.compile(r'.*IDE')
                         expr4 = regexLib.compile(r'.*SCSI')
-
+                        # TODO CHANGE Below finds the first match and creates the VM
                         new = expr2.findall(s)
                         if new:
                             CreateVMfromOVF(vmID, line[:-1], "sata")
@@ -175,20 +178,13 @@ def ParseOVF (vmID):
                 print("OVF File not found looking for VMX File")
 
 def ConvertVMDKtoQCOW2(vmID, vmName):
-    with open("ConvertRAWfile.txt") as enumFile:
-        for i, line in enumerate(enumFile):
-           cmdConvert = "qemu-img convert -f vmdk " + line[:-1] + ".vmdk -O qcow2 " + line[:-1] + ".qcow2"
-           os.system(cmdConvert)
-           print("Successful conversion of " + line[:-1] + ".vmdk to " + line[:-1] + ".qcow2")
-           cmdMove = ("mv " + line[:-1] + ".qcow2 /Backup/images/" + str(vmID) + "/vm-" + str(vmID) + "-disk-1.qcow2")
-           os.system(cmdMove)
-           print("Moved " + line[:-1] + ".qcow2 to  /Backup/images/" + str(VMID_Start) + "/vm-" + str(VMID_Start) + "-disk-1.qcow2")
-	   os.system("rm -rf "+ line[:-1]+ ".raw")
-           print "Deleted "+ line[:-1]+ ".raw"
-           VMID_Start += 1 
-           print("Completed")
-
-    print("Converted and moved all the files")
+    cmdConvert = "qemu-img convert -f vmdk " + vmName + ".vmdk -O qcow2 " + vmName + ".qcow2"
+    os.system(cmdConvert)
+    print("Successful conversion of " + vmName + ".vmdk to " + vmName + ".qcow2")
+    cmdMove = ("mv " + vmName + ".qcow2 /Backup/images/" + str(vmID) + "/vm-" + str(vmID) + "-disk-0.qcow2")
+    os.system(cmdMove)
+    print("Moved " + vmName + ".qcow2 to  /Backup/images/" + str(vmID) + "/vm-" + str(vmID) + "-disk-1.qcow2")
+    print("Completed")
     os.system("rm -rf ConvertRAWfile.txt")
 
 out = []
